@@ -133,3 +133,14 @@ class ConditionalGAN(nn.Module):
             filename = os.path.join(output_dir, f"epoch_{epoch}.png")
             vutils.save_image(gen_imgs, filename, nrow=self.num_classes, normalize=True)
             print(f"Saved samples to {filename}")
+
+    def generate_samples(self, class_label, num_samples, save_path='cgan_images'):
+        with torch.no_grad():
+            z = torch.randn(num_samples, self.z_dim, device=self.device)
+            labels = torch.full((num_samples,), class_label, dtype=torch.long, device=self.device)
+            gen_imgs = self.generator(z, labels)
+            gen_imgs = (gen_imgs + 1) / 2  # Rescale from [-1, 1] to [0, 1]
+
+            filename = os.path.join(save_path, f"class_{class_label}.png")
+            vutils.save_image(gen_imgs, filename, nrow=min(num_samples, 8), normalize=True)
+            #print(f"Saved generated samples for class {class_label} to {save_path}")
