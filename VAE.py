@@ -18,26 +18,27 @@ class VAE(nn.Module):
             nn.ReLU(),
             nn.Conv2d(32, 64, kernel_size=4, stride=2, padding=1),  # 32x14x14 → 64x7x7
             nn.ReLU(),
-            nn.Conv2d(64, 128, kernel_size=4, stride=2, padding=1),
-            nn.ReLU(),
             nn.Flatten()
         )
-        self.fc_mu = nn.Linear(64 * 3 * 3, latent_dim)
-        self.fc_logvar = nn.Linear(128 * 3 * 3, latent_dim)
+        self.flatten_dim = 64 * (28 // 4) * (28 // 4)
+        self.fc_mu = nn.Linear(self.flatten_dim, latent_dim)
+        self.fc_logvar = nn.Linear(self.flatten_dim, latent_dim)
 
         # Decoder
-        self.fc_decode = nn.Linear(latent_dim, 64 * 7 * 7)
+        #self.fc_decode = nn.Linear(latent_dim, 64 * 7 * 7)
+        self.fc_decode = nn.Linear(latent_dim, self.flatten_dim)
         self.decoder = nn.Sequential(
-            nn.ConvTranspose2d(128, 64, kernel_size=4, stride=2, padding=1),
-            nn.ReLU(),
             nn.ConvTranspose2d(64, 32, kernel_size=4, stride=2, padding=1),  # 64x7x7 → 32x14x14
             nn.ReLU(),
-            nn.ConvTranspose2d(32, 3, kernel_size=4, stride=2, padding=1),   # 32x14x14 → 3x28x28
+            nn.ConvTranspose2d(32, 3, kernel_size=4, stride=2, padding=1),  # 32x14x14 → 3x28x28
+            #nn.ReLU(),
+            #nn.ConvTranspose2d(16, 3, kernel_size=4, stride=2, padding=1),   # 32x14x14 → 3x28x28
             nn.Sigmoid()
         )
 
     def encode(self, x):
         x = self.encoder(x)
+        #print("end of encoder shape: ", x.shape)
         mu = self.fc_mu(x)
         logvar = self.fc_logvar(x)
         return mu, logvar
@@ -50,7 +51,11 @@ class VAE(nn.Module):
     def decode(self, z):
         device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
         z = z.to(device)
-        x = self.fc_decode(z).view(-1, 128, 7, 7)
+        #print("z shape = ", z.shape)
+        #x = self.fc_decode(z).view(-1, 128, 7, 7)
+        x = self.fc_decode(z).view(-1, 64, 7, 7)
+        #print(x.shape)
+        #print(self.decode(z).shape)
         return self.decoder(x)
 
     def forward(self, x):
@@ -59,6 +64,7 @@ class VAE(nn.Module):
 
         mu, logvar = self.encode(x)
         z = self.reparameterize(mu, logvar)
+        #print("test = ", z.shape)
         x_recon = self.decode(z)
         return x_recon, mu, logvar
 
@@ -86,6 +92,8 @@ class VAE(nn.Module):
                 
                 recon, mu, logvar = self.forward(inputs)
                 recon, mu, logvar = recon.to(device), mu.to(device), logvar.to(device)
+                #print("recon shape = ", recon.shape)
+                #print("inputs shape = ", inputs.shape)
                 loss = loss_function(recon, inputs, mu, logvar)
 
                 optimizer.zero_grad()
